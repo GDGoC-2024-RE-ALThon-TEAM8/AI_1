@@ -1,0 +1,8 @@
+IPython
+opencv-python-headless  # For cv2 (minimal OpenCV build)
+ffmpeg-python           # If ffmpeg-python library is used
+gtts
+numpy
+pydub
+scipy
+uvicorn 
