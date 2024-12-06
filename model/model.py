@@ -1,3 +1,5 @@
+# 텍스트 가지고 입모양 영상 생성
+
 from IPython.display import HTML, Audio
 from base64 import b64decode
 import numpy as np
@@ -13,8 +15,11 @@ import os
 
 from pydub import AudioSegment
 
+
 class VideoModel:
-    def __init__(self, wav2lip_dir="Wav2Lip", checkpoint_path="checkpoints/wav2lip.pth"):
+    def __init__(
+        self, wav2lip_dir="Wav2Lip", checkpoint_path="checkpoints/wav2lip.pth"
+    ):
         self.wav2lip_dir = wav2lip_dir
         self.checkpoint_path = checkpoint_path
 
@@ -32,12 +37,12 @@ class VideoModel:
                     file.write(chunk)
             return save_path
         else:
-            raise ValueError(f"Failed to download image from URL: {image_url}")    
+            raise ValueError(f"Failed to download image from URL: {image_url}")
 
     def generate_tts(self, text, output_path):
-        tts = gTTS(text=text, lang='ko')  # 한국어 설정
+        tts = gTTS(text=text, lang="ko")  # 한국어 설정
         tts.save(output_path)
-        
+
         return output_path
 
     def get_audio_length(self, file_path):
@@ -63,7 +68,7 @@ class VideoModel:
         height, width, _ = image.shape
 
         # 동영상 코덱 설정 (MP4V 사용)
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 
         # 동영상 작성기 초기화
         video_writer = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
@@ -77,65 +82,75 @@ class VideoModel:
 
         # 동영상 작성기 종료
         video_writer.release()
-        
+
         return output_video_path
 
-    def generate_wav2lip_video(self, text, image_path=None, image_url=None, output_path="results/result_voice.mp4", temp_dir="temp", fps=30):
-            """
-            Run the Wav2Lip model to generate a video with synced lip movements.
+    def generate_wav2lip_video(
+        self,
+        text,
+        image_path=None,
+        image_url=None,
+        output_path="results/result_voice.mp4",
+        temp_dir="temp",
+        fps=30,
+    ):
+        """
+        Run the Wav2Lip model to generate a video with synced lip movements.
 
-            :param face_video_path: Path to the input face video
-            :param audio_path: Path to the input audio file
-            :param output_path: Path to save the output video
-            :return: Path to the generated video
-            """
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
+        :param face_video_path: Path to the input face video
+        :param audio_path: Path to the input audio file
+        :param output_path: Path to save the output video
+        :return: Path to the generated video
+        """
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
 
-            try:
-                # Step 1: Handle Image Input
-                if image_url and not image_path:
-                    image_path = os.path.join(temp_dir, "temp_image.jpg")
-                    self.download_image(image_url, image_path)
-                elif not image_path:
-                    raise ValueError("Either 'image_path' or 'image_url' must be provided.")
+        try:
+            # Step 1: Handle Image Input
+            if image_url and not image_path:
+                image_path = os.path.join(temp_dir, "temp_image.jpg")
+                self.download_image(image_url, image_path)
+            elif not image_path:
+                raise ValueError("Either 'image_path' or 'image_url' must be provided.")
 
-                # Step 2: Generate TTS audio
-                tts_audio_path = os.path.join(temp_dir, "tts_audio.mp3")
-                self.generate_tts(text, tts_audio_path)
+            # Step 2: Generate TTS audio
+            tts_audio_path = os.path.join(temp_dir, "tts_audio.mp3")
+            self.generate_tts(text, tts_audio_path)
 
-                # Step 3: Get audio length
-                audio_length = self.get_audio_length(tts_audio_path)
+            # Step 3: Get audio length
+            audio_length = self.get_audio_length(tts_audio_path)
 
-                # Step 4: Create a video from the static image
-                temp_video_path = os.path.join(temp_dir, "temp_video.mp4")
-                self.create_video_from_image(image_path, temp_video_path, video_length=audio_length, fps=fps)
+            # Step 4: Create a video from the static image
+            temp_video_path = os.path.join(temp_dir, "temp_video.mp4")
+            self.create_video_from_image(
+                image_path, temp_video_path, video_length=audio_length, fps=fps
+            )
 
-                # Step 5: Run Wav2Lip to synchronize audio with video
-                command = [
-                    "python",
-                    os.path.join(self.wav2lip_dir, "inference.py"),
-                    "--checkpoint_path",
-                    self.checkpoint_path,
-                    "--face",
-                    temp_video_path,
-                    "--audio",
-                    tts_audio_path,
-                    "--outfile",
-                    output_path,
-                ]
+            # Step 5: Run Wav2Lip to synchronize audio with video
+            command = [
+                "python",
+                os.path.join(self.wav2lip_dir, "inference.py"),
+                "--checkpoint_path",
+                self.checkpoint_path,
+                "--face",
+                temp_video_path,
+                "--audio",
+                tts_audio_path,
+                "--outfile",
+                output_path,
+            ]
 
-                subprocess.run(command, check=True)
+            subprocess.run(command, check=True)
 
-                return output_path
+            return output_path
 
-            except subprocess.CalledProcessError as e:
-                raise RuntimeError(f"Error occurred during Wav2Lip execution: {e}")
-            except Exception as e:
-                raise e
-            finally:
-                # Cleanup temporary files
-                if os.path.exists(temp_dir):
-                    for file in os.listdir(temp_dir):
-                        os.remove(os.path.join(temp_dir, file))
-                    os.rmdir(temp_dir)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Error occurred during Wav2Lip execution: {e}")
+        except Exception as e:
+            raise e
+        finally:
+            # Cleanup temporary files
+            if os.path.exists(temp_dir):
+                for file in os.listdir(temp_dir):
+                    os.remove(os.path.join(temp_dir, file))
+                os.rmdir(temp_dir)

@@ -1,44 +1,33 @@
-# Use an official Python runtime as the base image
+# Base Image: Python Slim (Lightweight)
 FROM python:3.9-slim
 
-# Set environment variables to prevent Python from buffering output
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Set working directory in the container
+# Set working directory
 WORKDIR /app
-
-COPY . .
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    requirements.txt \
+    build-essential \
+    ffmpeg \
+    wget \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone the GitHub repository
-RUN git clone https://github.com/zabique/Wav2Lip.git /app/Wav2Lip
+# Copy project files
+COPY . .
 
-# Download the pretrained Wav2Lip GAN model
-RUN wget 'https://iiitaphyd-my.sharepoint.com/personal/radrabha_m_research_iiit_ac_in/_layouts/15/download.aspx?share=EdjI7bZlgApMqsVoEUUXpLsBxqXbn5z8VTmoxp55YNDcIA' -O '/app/Wav2Lip/checkpoints/wav2lip_gan.pth'
+# Install Python dependencies
+RUN pip install --upgrade pip 
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Download the face detection model
-RUN wget "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth" -O "/app/Wav2Lip/face_detection/detection/sfd/s3fd.pth"
+# Additional manual installations for Wav2Lip and any extra requirements
+RUN git clone https://github.com/zabique/Wav2Lip.git /app/Wav2Lip && \
+    wget 'https://iiitaphyd-my.sharepoint.com/personal/radrabha_m_research_iiit_ac_in/_layouts/15/download.aspx?share=EdjI7bZlgApMqsVoEUUXpLsBxqXbn5z8VTmoxp55YNDcIA' -O '/app/Wav2Lip/checkpoints/wav2lip_gan.pth' && \
+    wget "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth" -O "/app/Wav2Lip/face_detection/detection/sfd/s3fd.pth" && \
+    pip install --no-cache-dir -r /app/Wav2Lip/requirements.txt
 
-# Install Wav2Lip dependencies
-RUN pip install --upgrade pip && \
-    pip install -r /app/Wav2Lip/requirements.txt
 
-# Install additional Python libraries
-RUN pip install \
-    transformers \
-    torch \
-    pydub \
-    opencv-python \
-    gTTS \
-    https://raw.githubusercontent.com/AwaleSajil/ghc/master/ghc-1.0-py3-none-any.whl
+# Expose the application port
+EXPOSE 8000
 
-# Expose any required ports (optional)
-# EXPOSE 8000
-
-# Add an entry point for running Wav2Lip
-CMD ["/bin/bash"]
+# Command to run the FastAPI server
+CMD ["uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
